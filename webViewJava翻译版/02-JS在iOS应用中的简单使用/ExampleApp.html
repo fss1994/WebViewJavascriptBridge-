@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<style type='text/css'>
+		html { font-family:Helvetica; color:#222; }
+		h1 { color:steelblue; font-size:24px; margin-top:24px; }
+		button { margin:0 3px 10px; font-size:12px; }
+		.logLine { border-bottom:1px solid #ccc; padding:4px 2px; font-family:courier; font-size:11px; }
+	</style>
+</head><body>
+	<h1>WebViewJavascriptBridge Demo</h1>
+	<script>
+	window.onerror = function(err) {
+		log('window.onerror: ' + err)
+	}
+	
+    
+  /*  这里初始化先是创建了一个connectWebViewJavascriptBridge方法，该方法注册了一个WebViewJavascriptBridgeReady事件，同时声明了一个全局的WebViewJavascriptBridge变量。我们可以在外部通过WebViewJavascriptBridge调用相关方法。
+ */
+	function connectWebViewJavascriptBridge(callback) {
+		if (window.WebViewJavascriptBridge) {
+			callback(WebViewJavascriptBridge)
+		} else {
+			document.addEventListener('WebViewJavascriptBridgeReady', function() {
+				callback(WebViewJavascriptBridge)
+			}, false)
+		}
+	}
+    /*
+    在init里面同样有一个function，这个function同样是用来接收Objective-C里面通过send方法发送的消息的，参数与OC里的send方法参数对应
+     */
+	connectWebViewJavascriptBridge(function(bridge) {
+		var uniqueId = 1
+		function log(message, data) {
+			var log = document.getElementById('log')
+			var el = document.createElement('div')
+			el.className = 'logLine'
+			el.innerHTML = uniqueId++ + '. ' + message + ':<br/>' + JSON.stringify(data)
+			if (log.children.length) { log.insertBefore(el, log.children[0]) }
+			else { log.appendChild(el) }
+		}
+                         
+                                   
+        // 这里是 js 接收到oc 消息调用
+		bridge.init(function(message, responseCallback) {
+			log('js ------------接收到 消息', message)
+			var data = { 'JS':'我接收到了oc的消息' }
+			log('JS 回应 oc 消息', data)
+			responseCallback(data)
+		})
+
+                                   
+        // oc中调用js 首先在js中注册一个方法
+		bridge.registerHandler('testJavascriptHandler', function(data, responseCallback) {
+			log('ObjC called testJavascriptHandler with', data)
+			var responseData = { 'Javascript Says':'你也是啊,彼此彼此' }
+			log('JS 回应', responseData)
+			responseCallback(responseData)
+		})
+
+        // js 向 oc 发送消息
+		var button = document.getElementById('buttons').appendChild(document.createElement('button'))
+		button.innerHTML = 'js 发送消息 给 oc'
+		button.onclick = function(e) {
+			e.preventDefault()
+                                   
+            // 这里是从 js 发送过去的消息
+			var data = '这里是 JS 我向oc发送消息'
+     		log('JS ------------------- 发送消息 ---', data)
+            // OC 向 js发送消息
+			bridge.send(data, function(responseData) {
+				log('JS 得到回应的 数据----', responseData)
+			})
+		}
+
+		document.body.appendChild(document.createElement('br'))
+
+		var callbackButton = document.getElementById('buttons').appendChild(document.createElement('button'))
+		callbackButton.innerHTML = 'Fire testObjcCallback'
+		callbackButton.onclick = function(e) {
+			e.preventDefault()
+			log('JS calling handler "testObjcCallback"')
+			bridge.callHandler('testObjcCallback', {'foo': 'bar'}, function(response) {
+				log('JS got response', response)
+			})
+		}
+	})
+	</script>
+	<div id='buttons'></div> <div id='log'></div>
+</body></html>
